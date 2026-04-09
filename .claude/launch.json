@@ -1,0 +1,63 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "API Gateway (8080)",
+      "runtimeExecutable": "mvn",
+      "runtimeArgs": [
+        "spring-boot:run",
+        "-pl", "tokenization-api-gateway",
+        "-am",
+        "-Dspring-boot.run.profiles=dev",
+        "-Dtokenization.key-provider=local"
+      ],
+      "port": 8080
+    },
+    {
+      "name": "Tokenization Engine (8081)",
+      "runtimeExecutable": "mvn",
+      "runtimeArgs": [
+        "spring-boot:run",
+        "-pl", "tokenization-engine",
+        "-am",
+        "-Dspring-boot.run.profiles=dev",
+        "-Dtokenization.key-provider=local"
+      ],
+      "port": 8081
+    },
+    {
+      "name": "Access Control (8083)",
+      "runtimeExecutable": "mvn",
+      "runtimeArgs": [
+        "spring-boot:run",
+        "-pl", "tokenization-access-control",
+        "-am",
+        "-Dspring-boot.run.profiles=dev"
+      ],
+      "port": 8083
+    },
+    {
+      "name": "Audit Service (8084)",
+      "runtimeExecutable": "mvn",
+      "runtimeArgs": [
+        "spring-boot:run",
+        "-pl", "tokenization-audit",
+        "-am",
+        "-Dspring-boot.run.profiles=dev"
+      ],
+      "port": 8084
+    },
+    {
+      "name": "Admin UI Portal (8085)",
+      "runtimeExecutable": "mvn",
+      "runtimeArgs": [
+        "spring-boot:run",
+        "-pl", "tokenization-ui",
+        "-am",
+        "-Dspring-boot.run.profiles=dev",
+        "-Dtokenization.key-provider=local"
+      ],
+      "port": 8085
+    }
+  ]
+}

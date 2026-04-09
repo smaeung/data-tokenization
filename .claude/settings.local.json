@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mvn clean:*)",
+      "Bash(where mvn:*)",
+      "Bash(where java:*)",
+      "Bash(cmd.exe /c \"where mvn 2>nul & where java 2>nul & echo PATH_CHECK_DONE\")",
+      "Bash(cmd.exe /c \"where mvn\")",
+      "Bash(cmd.exe /c \"where java\")"
+    ]
+  }
+}

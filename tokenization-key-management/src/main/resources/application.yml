@@ -1,0 +1,53 @@
+# Key Management Module Configuration
+#
+# WHY: Externalized configuration allows different environments (dev, staging, prod)
+# to use different key providers without code changes. Spring profiles control activation.
+
+spring:
+  application:
+    name: tokenization-key-management
+  cache:
+    type: caffeine
+    caffeine:
+      spec: maximumSize=500,expireAfterWrite=300s
+      # WHY: 5-minute cache TTL reduces Vault API calls.
+      # Short enough to reflect key rotations within a reasonable window.
+
+# Tokenization-specific configuration
+tokenization:
+  # WHY: Defaults to 'vault' to prevent accidental use of local keys in production.
+  # Override to 'local' for development: tokenization.key-provider=local
+  key-provider: vault
+
+# HashiCorp Vault configuration
+spring.cloud.vault:
+  host: ${VAULT_HOST:localhost}
+  port: ${VAULT_PORT:8200}
+  scheme: ${VAULT_SCHEME:https}
+  authentication: TOKEN
+  token: ${VAULT_TOKEN:}
+  # WHY: Transit backend is the correct Vault engine for cryptographic operations.
+  # It provides server-side encryption without exposing key material (when used without export).
+  kv:
+    enabled: false
+
+# Resilience4j circuit breaker for Vault calls
+resilience4j:
+  circuitbreaker:
+    instances:
+      vault:
+        # WHY: Open the circuit after 50% failure rate in a 10-request window.
+        # Prevents cascading failures when Vault is temporarily unavailable.
+        failure-rate-threshold: 50
+        minimum-number-of-calls: 10
+        wait-duration-in-open-state: 30s
+        permitted-number-of-calls-in-half-open-state: 3
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: when_authorized

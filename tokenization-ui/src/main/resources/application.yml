@@ -1,0 +1,28 @@
+spring:
+  application:
+    name: tokenization-ui
+  thymeleaf:
+    # WHY cache=false in dev: Allows template changes without restarting the server
+    cache: ${THYMELEAF_CACHE:true}
+    mode: HTML
+  security:
+    # WHY: Override default Spring Boot security user with explicit credentials
+    user:
+      name: ${ADMIN_USER:admin}
+      password: ${ADMIN_PASSWORD:changeme}
+      roles: ADMIN
+
+server:
+  port: 8085
+
+# Service URLs (consumed by UI to call backend APIs)
+services:
+  engine-url: ${ENGINE_URL:http://localhost:8081}
+  audit-url: ${AUDIT_URL:http://localhost:8084}
+  access-control-url: ${ACCESS_CONTROL_URL:http://localhost:8083}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8"/>
+    <title>Login | Tokenization Admin</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet"/>
+</head>
+<body class="bg-dark d-flex align-items-center" style="min-height:100vh">
+    <div class="container" style="max-width:400px">
+        <div class="card shadow">
+            <div class="card-body p-4">
+                <h4 class="text-center mb-4">🔐 Tokenization Admin</h4>
+                <!-- WHY th:action with CSRF: Thymeleaf automatically injects the CSRF token
+                     into POST forms, preventing CSRF attacks on the login endpoint -->
+                <form th:action="@{/login}" method="post">
+                    <div th:if="${param.error}" class="alert alert-danger">
+                        Invalid username or password.
+                    </div>
+                    <div th:if="${param.logout}" class="alert alert-info">
+                        You have been logged out.
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Username</label>
+                        <input type="text" name="username" class="form-control" required autofocus/>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Password</label>
+                        <input type="password" name="password" class="form-control" required/>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100">Login</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

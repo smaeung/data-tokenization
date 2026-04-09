@@ -1,0 +1,293 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <!--
+      WHY: Parent POM acts as a Bill of Materials (BOM) managing ALL dependency
+      versions centrally. Child modules inherit versions without specifying them,
+      preventing version conflicts across modules.
+    -->
+    <groupId>com.tokenization</groupId>
+    <artifactId>data-tokenization</artifactId>
+    <version>1.0.0-SNAPSHOT</version>
+    <packaging>pom</packaging>
+    <name>Data Tokenization Service - Parent</name>
+    <description>
+        Production-grade vaultless data tokenization service using NIST FF1
+        Format-Preserving Encryption. Targets PCI DSS and HIPAA compliance.
+        Built with Spring Boot 3.x and GraalVM Native Image support.
+    </description>
+
+    <modules>
+        <module>tokenization-common</module>
+        <module>tokenization-key-management</module>
+        <module>tokenization-engine</module>
+        <module>tokenization-access-control</module>
+        <module>tokenization-audit</module>
+        <module>tokenization-api-gateway</module>
+        <module>tokenization-ui</module>
+    </modules>
+
+    <!--
+      WHY: Spring Boot parent provides opinionated dependency management,
+      plugin management, and production-ready defaults.
+      Version 3.3.x is the latest stable release with full GraalVM native support.
+    -->
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>3.3.4</version>
+        <relativePath/>
+    </parent>
+
+    <properties>
+        <java.version>21</java.version>
+        <!-- WHY: Java 21 is the current LTS release with virtual threads (Project Loom)
+             which improves throughput for I/O-bound operations like Vault API calls -->
+        <maven.compiler.source>${java.version}</maven.compiler.source>
+        <maven.compiler.target>${java.version}</maven.compiler.target>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+
+        <!-- Dependency versions — managed centrally -->
+        <spring-cloud.version>2023.0.3</spring-cloud.version>
+        <bouncycastle.version>1.78.1</bouncycastle.version>
+        <!-- WHY: Bouncy Castle 1.78+ provides FIPS-compatible FF1 FPE implementation -->
+        <jjwt.version>0.12.6</jjwt.version>
+        <testcontainers.version>1.20.1</testcontainers.version>
+        <mapstruct.version>1.5.5.Final</mapstruct.version>
+        <springdoc.version>2.6.0</springdoc.version>
+        <resilience4j.version>2.2.0</resilience4j.version>
+        <spring-vault.version>3.1.2</spring-vault.version>
+        <jacoco.version>0.8.12</jacoco.version>
+        <!-- WHY: JaCoCo 0.8.12 supports Java 21 and GraalVM Native Image test coverage -->
+    </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <!-- Spring Cloud BOM -->
+            <dependency>
+                <groupId>org.springframework.cloud</groupId>
+                <artifactId>spring-cloud-dependencies</artifactId>
+                <version>${spring-cloud.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+
+            <!-- Internal modules -->
+            <dependency>
+                <groupId>com.tokenization</groupId>
+                <artifactId>tokenization-common</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.tokenization</groupId>
+                <artifactId>tokenization-key-management</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.tokenization</groupId>
+                <artifactId>tokenization-access-control</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.tokenization</groupId>
+                <artifactId>tokenization-audit</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <!-- Bouncy Castle — FIPS-compatible cryptography library -->
+            <!-- WHY: Bouncy Castle provides the FF1 Format-Preserving Encryption
+                 implementation required by NIST SP 800-38G. It is the industry
+                 standard Java cryptography library for FIPS compliance. -->
+            <dependency>
+                <groupId>org.bouncycastle</groupId>
+                <artifactId>bcprov-jdk18on</artifactId>
+                <version>${bouncycastle.version}</version>
+            </dependency>
+
+            <!-- JWT — JSON Web Token library -->
+            <!-- WHY: jjwt 0.12.x is the most widely adopted Java JWT library,
+                 with strong algorithm support and active security maintenance -->
+            <dependency>
+                <groupId>io.jsonwebtoken</groupId>
+                <artifactId>jjwt-api</artifactId>
+                <version>${jjwt.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.jsonwebtoken</groupId>
+                <artifactId>jjwt-impl</artifactId>
+                <version>${jjwt.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.jsonwebtoken</groupId>
+                <artifactId>jjwt-jackson</artifactId>
+                <version>${jjwt.version}</version>
+            </dependency>
+
+            <!-- Testcontainers — real database in integration tests -->
+            <!-- WHY: We use real PostgreSQL in tests (not H2/mocks) because we were
+                 burned in the past when mocked tests passed but prod migrations failed -->
+            <dependency>
+                <groupId>org.testcontainers</groupId>
+                <artifactId>testcontainers-bom</artifactId>
+                <version>${testcontainers.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+
+            <!-- OpenAPI documentation -->
+            <dependency>
+                <groupId>org.springdoc</groupId>
+                <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+                <version>${springdoc.version}</version>
+            </dependency>
+
+            <!-- Resilience4j circuit breakers -->
+            <dependency>
+                <groupId>io.github.resilience4j</groupId>
+                <artifactId>resilience4j-spring-boot3</artifactId>
+                <version>${resilience4j.version}</version>
+            </dependency>
+
+            <!-- Spring Vault -->
+            <dependency>
+                <groupId>org.springframework.vault</groupId>
+                <artifactId>spring-vault-core</artifactId>
+                <version>${spring-vault.version}</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <!-- Common dependencies for ALL modules -->
+    <dependencies>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <optional>true</optional>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <pluginManagement>
+            <plugins>
+                <!-- WHY: JaCoCo enforces minimum code coverage thresholds.
+                     Build fails if coverage drops below configured minimums,
+                     preventing coverage regression. -->
+                <plugin>
+                    <groupId>org.jacoco</groupId>
+                    <artifactId>jacoco-maven-plugin</artifactId>
+                    <version>${jacoco.version}</version>
+                    <executions>
+                        <execution>
+                            <goals>
+                                <goal>prepare-agent</goal>
+                            </goals>
+                        </execution>
+                        <execution>
+                            <id>report</id>
+                            <phase>test</phase>
+                            <goals>
+                                <goal>report</goal>
+                            </goals>
+                        </execution>
+                    </executions>
+                </plugin>
+
+                <!-- WHY: native-maven-plugin enables GraalVM AOT compilation.
+                     Native images achieve < 100ms cold start vs 5-20s JVM start,
+                     critical for auto-scaling and serverless deployment scenarios. -->
+                <plugin>
+                    <groupId>org.graalvm.buildtools</groupId>
+                    <artifactId>native-maven-plugin</artifactId>
+                </plugin>
+            </plugins>
+        </pluginManagement>
+
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <source>${java.version}</source>
+                    <target>${java.version}</target>
+                    <annotationProcessorPaths>
+                        <path>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok</artifactId>
+                        </path>
+                    </annotationProcessorPaths>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+
+    <profiles>
+        <!-- Integration test profile — uses Testcontainers with real PostgreSQL -->
+        <profile>
+            <id>integration-tests</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-failsafe-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <goals>
+                                    <goal>integration-test</goal>
+                                    <goal>verify</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+
+        <!-- Native image profile — GraalVM AOT compilation for production -->
+        <!-- WHY: Separate profile allows fast JVM builds during development
+             while native builds are reserved for CI/release pipeline -->
+        <profile>
+            <id>native</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.graalvm.buildtools</groupId>
+                        <artifactId>native-maven-plugin</artifactId>
+                        <extensions>true</extensions>
+                        <executions>
+                            <execution>
+                                <id>build-native</id>
+                                <goals>
+                                    <goal>compile-no-fork</goal>
+                                </goals>
+                                <phase>package</phase>
+                            </execution>
+                            <execution>
+                                <id>test-native</id>
+                                <goals>
+                                    <goal>test</goal>
+                                </goals>
+                                <phase>test</phase>
+                            </execution>
+                        </executions>
+                        <configuration>
+                            <buildArgs>
+                                <!-- WHY: initialize-at-build-time improves native image startup
+                                     by moving class initialization to compile time -->
+                                <buildArg>--initialize-at-build-time=org.bouncycastle</buildArg>
+                                <buildArg>-H:+ReportExceptionStackTraces</buildArg>
+                            </buildArgs>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
+</project>
