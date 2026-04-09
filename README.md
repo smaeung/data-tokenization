@@ -65,7 +65,7 @@ See `docs/adr/` for full Architecture Decision Records.
 
 `LocalKeyProvider` generates in-memory AES-256 keys. No Vault, no PostgreSQL needed.
 
-**1. Build all modules:**
+**1. Build all modules once** (installs jars into local Maven repo):
 ```powershell
 mvn clean install -DskipTests "-Dtokenization.key-provider=local"
 ```
@@ -73,26 +73,31 @@ mvn clean install -DskipTests "-Dtokenization.key-provider=local"
 **2. Run a service** (open a separate terminal per service):
 ```powershell
 # Core tokenization engine  (port 8081)
-mvn spring-boot:run -pl tokenization-engine -am `
+mvn spring-boot:run -pl tokenization-engine `
   "-Dspring-boot.run.profiles=dev" `
   "-Dspring-boot.run.jvmArguments=-Dtokenization.key-provider=local"
 
 # Access control / OPA  (port 8083)
-mvn spring-boot:run -pl tokenization-access-control -am `
+mvn spring-boot:run -pl tokenization-access-control `
   "-Dspring-boot.run.profiles=dev" `
   "-Dspring-boot.run.jvmArguments=-Dtokenization.key-provider=local"
 
 # Audit service  (port 8084)
-mvn spring-boot:run -pl tokenization-audit -am `
+mvn spring-boot:run -pl tokenization-audit `
   "-Dspring-boot.run.profiles=dev" `
   "-Dspring-boot.run.jvmArguments=-Dtokenization.key-provider=local"
 
 # API Gateway  (port 8080) — JWT auth + routing
-mvn spring-boot:run -pl tokenization-api-gateway -am "-Dspring-boot.run.profiles=dev"
+mvn spring-boot:run -pl tokenization-api-gateway "-Dspring-boot.run.profiles=dev"
 
 # Admin UI  (port 8085)
-mvn spring-boot:run -pl tokenization-ui -am "-Dspring-boot.run.profiles=dev"
+mvn spring-boot:run -pl tokenization-ui "-Dspring-boot.run.profiles=dev"
 ```
+
+> **Why no `-am` on the run step?** `-am` (also-make) adds all parent/dependency modules to the
+> reactor. Maven then runs `spring-boot:run` on the parent POM too, which has no main class and
+> fails. After `mvn install` in step 1, all dependency jars are in your local Maven repo, so
+> `-am` is not needed when running.
 
 > Send all API requests to the gateway on port **8080** — it authenticates and routes to the correct backend.
 
@@ -110,13 +115,13 @@ docker-compose up -d
 mvn clean install -DskipTests
 ```
 
-**3. Run services** (separate terminals):
+**3. Run services** (separate terminals, no `-am` needed after install):
 ```powershell
-mvn spring-boot:run -pl tokenization-engine          -am "-Dspring-boot.run.profiles=docker"
-mvn spring-boot:run -pl tokenization-access-control  -am "-Dspring-boot.run.profiles=docker"
-mvn spring-boot:run -pl tokenization-audit           -am "-Dspring-boot.run.profiles=docker"
-mvn spring-boot:run -pl tokenization-api-gateway     -am "-Dspring-boot.run.profiles=docker"
-mvn spring-boot:run -pl tokenization-ui              -am "-Dspring-boot.run.profiles=docker"
+mvn spring-boot:run -pl tokenization-engine         "-Dspring-boot.run.profiles=docker"
+mvn spring-boot:run -pl tokenization-access-control "-Dspring-boot.run.profiles=docker"
+mvn spring-boot:run -pl tokenization-audit          "-Dspring-boot.run.profiles=docker"
+mvn spring-boot:run -pl tokenization-api-gateway    "-Dspring-boot.run.profiles=docker"
+mvn spring-boot:run -pl tokenization-ui             "-Dspring-boot.run.profiles=docker"
 ```
 
 ---
