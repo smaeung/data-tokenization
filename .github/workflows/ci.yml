@@ -52,7 +52,12 @@ jobs:
           cache: maven
 
       - name: Build and run unit tests
-        run: mvn clean verify -B --no-transfer-progress
+        # WHY -Dtokenization.key-provider=local: LocalKeyProvider is
+        # @ConditionalOnProperty(havingValue="local"). Without this flag,
+        # Spring Boot looks for VaultKeyProvider which requires a live Vault
+        # instance — not available in CI. LocalKeyProvider uses in-memory
+        # AES-256 keys suitable for running all unit tests.
+        run: mvn clean verify -B --no-transfer-progress -Dtokenization.key-provider=local
         env:
           DB_HOST: localhost
           DB_PORT: 5432
@@ -120,6 +125,8 @@ jobs:
         # that GraalVM AOT compilation works with Bouncy Castle and Spring Boot 3.x.
         # WHY -DskipTests: Native compilation takes 10+ minutes per module.
         # All tests ran (and passed) in the build-and-test job above.
-        run: mvn -Pnative package -pl tokenization-engine -am -B --no-transfer-progress -DskipTests
-        env:
-          TOKENIZATION_KEY_PROVIDER: local
+        # WHY -Dtokenization.key-provider=local: Spring Boot's AOT processing
+        # (process-aot goal) starts the application context at build time to
+        # generate GraalVM native hints. LocalKeyProvider must be active
+        # so the context can start without a live Vault instance in CI.
+        run: mvn -Pnative package -pl tokenization-engine -am -B --no-transfer-progress -DskipTests -Dtokenization.key-provider=local
