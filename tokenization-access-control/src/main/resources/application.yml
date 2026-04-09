@@ -1,0 +1,42 @@
+spring:
+  application:
+    name: tokenization-access-control
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:tokenization}
+    username: ${DB_USER:tokenization}
+    password: ${DB_PASSWORD:tokenization}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+server:
+  port: 8083
+
+# OPA sidecar URL
+# WHY: Externalized so different environments can point to different OPA instances
+opa:
+  url: ${OPA_URL:http://localhost:8181}
+
+# JWT configuration
+jwt:
+  secret: ${JWT_SECRET:dev-secret-change-in-production}
+
+# Resilience4j circuit breaker for OPA
+resilience4j:
+  circuitbreaker:
+    instances:
+      opa:
+        failure-rate-threshold: 50
+        minimum-number-of-calls: 5
+        wait-duration-in-open-state: 15s
+        # WHY: Faster recovery than Vault — OPA restart is quicker than Vault unseal
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus

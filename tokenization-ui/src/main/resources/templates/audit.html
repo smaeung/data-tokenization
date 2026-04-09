@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <th:block th:replace="~{layout :: head(${pageTitle})}"/>
+</head>
+<body class="d-flex">
+    <th:block th:replace="~{layout :: sidebar}"/>
+    <main class="flex-grow-1 p-4">
+        <h2>Audit Logs</h2>
+        <!-- Filter Form -->
+        <form class="row g-2 mb-3" method="get" th:action="@{/audit}">
+            <div class="col-auto">
+                <select name="operation" class="form-select form-select-sm">
+                    <option value="">All Operations</option>
+                    <option value="TOKENIZE" th:selected="${selectedOperation == 'TOKENIZE'}">TOKENIZE</option>
+                    <option value="DETOKENIZE" th:selected="${selectedOperation == 'DETOKENIZE'}">DETOKENIZE</option>
+                    <option value="MASK" th:selected="${selectedOperation == 'MASK'}">MASK</option>
+                </select>
+            </div>
+            <div class="col-auto">
+                <input type="text" name="requesterId" class="form-control form-control-sm"
+                       placeholder="Filter by user" th:value="${selectedRequesterId}"/>
+            </div>
+            <div class="col-auto">
+                <button type="submit" class="btn btn-sm btn-primary">Filter</button>
+            </div>
+        </form>
+        <!-- Audit log table - data loaded via API call in production -->
+        <div class="alert alert-info">
+            Audit log data is loaded via the API. Configure the audit service URL to view live data.
+        </div>
+    </main>
+</body>
+</html>

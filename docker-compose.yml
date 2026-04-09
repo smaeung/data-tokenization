@@ -1,0 +1,112 @@
+# docker-compose.yml — Full stack for local development and integration testing
+#
+# WHY docker-compose: All services and their dependencies (PostgreSQL, Redis, Vault, OPA)
+# are defined here so the entire stack can be started with a single command.
+# This ensures developer environment parity with production.
+#
+# USAGE: docker-compose up -d (starts all infrastructure)
+#        Then: mvn spring-boot:run for each service
+#
+# SECURITY: This file contains dev-only credentials. Production credentials
+# must come from Vault/Kubernetes secrets — NEVER from docker-compose in production.
+
+version: '3.9'
+
+services:
+  # ─── PostgreSQL ────────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: tokenization-postgres
+    environment:
+      POSTGRES_DB: tokenization
+      POSTGRES_USER: tokenization
+      POSTGRES_PASSWORD: tokenization
+      # WHY: Separate database for audit to support independent scaling and compliance isolation
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      # WHY: init.sql creates the audit database and grants appropriate permissions
+      - ./docker/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tokenization"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ─── Redis (Rate Limiting + Caching) ──────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: tokenization-redis
+    # WHY: Redis is used for:
+    # 1. API Gateway rate limiting (sliding window counters)
+    # 2. Key provider caching (5-minute TTL to reduce Vault calls)
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  # ─── HashiCorp Vault (Key Management) ─────────────────────────────────────
+  vault:
+    image: hashicorp/vault:1.17
+    container_name: tokenization-vault
+    cap_add:
+      - IPC_LOCK
+    environment:
+      # WHY dev mode: For local development only. Production uses HA mode with auto-unseal.
+      VAULT_DEV_ROOT_TOKEN_ID: dev-root-token
+      VAULT_DEV_LISTEN_ADDRESS: "0.0.0.0:8200"
+    ports:
+      - "8200:8200"
+    healthcheck:
+      test: ["CMD", "vault", "status"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ─── Open Policy Agent (ABAC Policy Engine) ────────────────────────────────
+  opa:
+    image: openpolicyagent/opa:0.67.0
+    container_name: tokenization-opa
+    command:
+      - "run"
+      - "--server"
+      - "--addr=0.0.0.0:8181"
+      - "/policies"
+      # WHY: OPA watches the policies directory and hot-reloads on file changes
+      - "--watch"
+    volumes:
+      # WHY: Mount the Rego policy file so OPA serves the tokenization policy
+      - ./docs/opa:/policies
+    ports:
+      - "8181:8181"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8181/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ─── Prometheus (Metrics Collection) ──────────────────────────────────────
+  prometheus:
+    image: prom/prometheus:v2.54.0
+    container_name: tokenization-prometheus
+    volumes:
+      - ./docker/prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"
+
+  # ─── Jaeger (Distributed Tracing) ─────────────────────────────────────────
+  jaeger:
+    image: jaegertracing/all-in-one:1.60
+    container_name: tokenization-jaeger
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+    ports:
+      - "16686:16686"  # Jaeger UI
+      - "4317:4317"    # OTLP gRPC
+
+volumes:
+  postgres_data:

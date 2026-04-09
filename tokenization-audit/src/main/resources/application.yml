@@ -1,0 +1,30 @@
+spring:
+  application:
+    name: tokenization-audit
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:tokenization_audit}
+    username: ${DB_USER:tokenization}
+    password: ${DB_PASSWORD:tokenization}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+server:
+  port: 8084
+
+# WHY: Async thread pool sized to handle burst audit events without blocking
+spring.task.execution:
+  pool:
+    core-size: 4
+    max-size: 16
+    queue-capacity: 500
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus

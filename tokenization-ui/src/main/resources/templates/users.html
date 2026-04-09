@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <th:block th:replace="~{layout :: head(${pageTitle})}"/>
+</head>
+<body class="d-flex">
+    <th:block th:replace="~{layout :: sidebar}"/>
+    <main class="flex-grow-1 p-4">
+        <h2>User Management</h2>
+        <p class="text-muted">Manage users and role assignments. Users are loaded from the access control service.</p>
+        <div class="alert alert-info">
+            User management integrates with the tokenization-access-control service.
+            Configure the service URL to manage users.
+        </div>
+    </main>
+</body>
+</html>

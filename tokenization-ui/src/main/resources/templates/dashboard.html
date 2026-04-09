@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <th:block th:replace="~{layout :: head(${pageTitle})}"/>
+</head>
+<body class="d-flex">
+    <th:block th:replace="~{layout :: sidebar}"/>
+    <main class="flex-grow-1 p-4">
+        <h2 th:text="${pageTitle}">Dashboard</h2>
+        <!-- System Status Banner -->
+        <div class="alert" th:classappend="${systemStatus == 'OPERATIONAL'} ? 'alert-success' : 'alert-danger'">
+            System Status: <strong th:text="${systemStatus}">OPERATIONAL</strong>
+        </div>
+        <!-- Stats Cards — WHY: Show counts only, never token values or plaintext -->
+        <div class="row g-3 mt-2">
+            <div class="col-md-4">
+                <div class="card border-primary">
+                    <div class="card-body">
+                        <h5 class="card-title">Tokens Issued Today</h5>
+                        <p class="card-text display-6 text-primary" th:text="${tokensIssuedToday}">0</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card border-success">
+                    <div class="card-body">
+                        <h5 class="card-title">Active Key Versions</h5>
+                        <p class="card-text display-6 text-success" th:text="${activeKeys}">0</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card" th:classappend="${recentAnomalies > 0} ? 'border-danger' : 'border-secondary'">
+                    <div class="card-body">
+                        <h5 class="card-title">Recent Anomalies</h5>
+                        <p class="card-text display-6"
+                           th:classappend="${recentAnomalies > 0} ? 'text-danger' : 'text-secondary'"
+                           th:text="${recentAnomalies}">0</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+</body>
+</html>

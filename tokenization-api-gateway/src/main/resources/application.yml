@@ -1,0 +1,69 @@
+spring:
+  application:
+    name: tokenization-api-gateway
+
+  # Redis for rate limiting
+  # WHY: Redis-backed rate limiting is distributed — all gateway instances share rate counters.
+  # Without Redis, each instance has its own counter and the rate limit is effectively
+  # multiplied by the number of instances (making it useless under horizontal scaling).
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+
+  cloud:
+    gateway:
+      # WHY: Default filters apply to ALL routes — consistent behavior
+      default-filters:
+        - AddRequestHeader=X-Gateway-Version, 1.0
+      routes:
+        # Tokenization Engine
+        - id: tokenization-engine
+          uri: ${ENGINE_URL:http://localhost:8081}
+          predicates:
+            - Path=/api/v1/tokenize/**, /api/v1/detokenize, /api/v1/mask
+          filters:
+            # WHY: Rate limiting at the gateway level protects the engine from overload
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 100
+                redis-rate-limiter.burstCapacity: 200
+                redis-rate-limiter.requestedTokens: 1
+
+        # Audit Service
+        - id: tokenization-audit
+          uri: ${AUDIT_URL:http://localhost:8084}
+          predicates:
+            - Path=/api/v1/audit/**
+          filters:
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 20
+                redis-rate-limiter.burstCapacity: 40
+                redis-rate-limiter.requestedTokens: 1
+
+        # UI Portal
+        - id: tokenization-ui
+          uri: ${UI_URL:http://localhost:8085}
+          predicates:
+            - Path=/dashboard/**, /audit/**, /users/**, /keys/**, /login
+
+server:
+  port: 8080
+
+# JWT signing secret — must be the SAME value used by the tokenization engine
+# WHY: All services that validate JWTs must share the same secret. In production,
+# this comes from Vault or Kubernetes secrets — NEVER hardcoded.
+jwt:
+  secret: ${JWT_SECRET:dev-secret-change-in-production-must-be-256-bits}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus,gateway
+  endpoint:
+    health:
+      show-details: when_authorized
+    gateway:
+      enabled: true
