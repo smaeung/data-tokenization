@@ -184,6 +184,17 @@
                     <groupId>org.jacoco</groupId>
                     <artifactId>jacoco-maven-plugin</artifactId>
                     <version>${jacoco.version}</version>
+                    <configuration>
+                        <!-- WHY: Exclude boilerplate that has no testable logic.
+                             *Application  — just SpringApplication.run(), nothing to test.
+                             *Config       — Spring wiring classes, tested implicitly.
+                             *Entity       — pure getters/setters, covered by service tests. -->
+                        <excludes>
+                            <exclude>**/*Application.class</exclude>
+                            <exclude>**/*Config.class</exclude>
+                            <exclude>**/*Configuration.class</exclude>
+                        </excludes>
+                    </configuration>
                     <executions>
                         <execution>
                             <goals>
@@ -196,6 +207,38 @@
                             <goals>
                                 <goal>report</goal>
                             </goals>
+                        </execution>
+                        <!-- WHY: Bound to verify phase so coverage is checked as part of
+                             mvn verify. No need to call jacoco:check separately in CI. -->
+                        <execution>
+                            <id>check</id>
+                            <phase>verify</phase>
+                            <goals>
+                                <goal>check</goal>
+                            </goals>
+                            <configuration>
+                                <rules>
+                                    <rule>
+                                        <element>BUNDLE</element>
+                                        <limits>
+                                            <!-- WHY 90%: Targeting 90% instruction coverage for
+                                                 all service/crypto/key modules. This enforces that
+                                                 the core tokenization logic (FF1, service orchestration,
+                                                 access control) is fully exercised by the test suite. -->
+                                            <limit>
+                                                <counter>INSTRUCTION</counter>
+                                                <value>COVEREDRATIO</value>
+                                                <minimum>0.90</minimum>
+                                            </limit>
+                                            <limit>
+                                                <counter>BRANCH</counter>
+                                                <value>COVEREDRATIO</value>
+                                                <minimum>0.80</minimum>
+                                            </limit>
+                                        </limits>
+                                    </rule>
+                                </rules>
+                            </configuration>
                         </execution>
                     </executions>
                 </plugin>

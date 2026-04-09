@@ -143,4 +143,48 @@ class FF1EngineTest {
             .extracting(e -> ((TokenizationException) e).getErrorCode())
             .isEqualTo(TokenizationException.ErrorCode.INVALID_FORMAT);
     }
+
+    // ─── buildTweak Helper Tests ──────────────────────────────────────────────
+
+    @Test
+    @DisplayName("buildTweak 2-arg produces tenantId|dataType bytes")
+    void buildTweak_twoArg_producesExpectedBytes() {
+        byte[] tweak = FF1Engine.buildTweak("tenant-1", DataType.CREDIT_CARD);
+        assertThat(new String(tweak, StandardCharsets.UTF_8)).isEqualTo("tenant-1|CREDIT_CARD");
+    }
+
+    @Test
+    @DisplayName("buildTweak 3-arg with null additionalContext delegates to 2-arg")
+    void buildTweak_threeArg_nullContext_delegatesToTwoArg() {
+        byte[] tweak2 = FF1Engine.buildTweak("tenant-1", DataType.CREDIT_CARD);
+        byte[] tweak3 = FF1Engine.buildTweak("tenant-1", DataType.CREDIT_CARD, null);
+        assertThat(tweak3).isEqualTo(tweak2);
+    }
+
+    @Test
+    @DisplayName("buildTweak 3-arg with blank additionalContext delegates to 2-arg")
+    void buildTweak_threeArg_blankContext_delegatesToTwoArg() {
+        byte[] tweak2 = FF1Engine.buildTweak("tenant-1", DataType.CREDIT_CARD);
+        byte[] tweak3 = FF1Engine.buildTweak("tenant-1", DataType.CREDIT_CARD, "   ");
+        assertThat(tweak3).isEqualTo(tweak2);
+    }
+
+    @Test
+    @DisplayName("buildTweak 3-arg with non-blank additionalContext appends context to tweak")
+    void buildTweak_threeArg_withContext_appendsContext() {
+        byte[] tweak = FF1Engine.buildTweak("tenant-1", DataType.CREDIT_CARD, "order-456");
+        assertThat(new String(tweak, StandardCharsets.UTF_8))
+            .isEqualTo("tenant-1|CREDIT_CARD|order-456");
+    }
+
+    @Test
+    @DisplayName("Different additionalContext produces different tokens (tweak domain separation)")
+    void tokenize_withDifferentAdditionalContext_differentTokens() {
+        String pan = "4532015112830366";
+        byte[] tweak1 = FF1Engine.buildTweak("tenant-1", DataType.CREDIT_CARD, "ctx-A");
+        byte[] tweak2 = FF1Engine.buildTweak("tenant-1", DataType.CREDIT_CARD, "ctx-B");
+        String token1 = ff1Engine.tokenize(pan, testKey, tweak1, DataType.CREDIT_CARD);
+        String token2 = ff1Engine.tokenize(pan, testKey, tweak2, DataType.CREDIT_CARD);
+        assertThat(token1).isNotEqualTo(token2);
+    }
 }
