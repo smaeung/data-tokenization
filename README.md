@@ -46,23 +46,95 @@ See `docs/adr/` for full Architecture Decision Records.
 
 ### Prerequisites
 - Java 21, Maven 3.9+
-- Docker + Docker Compose
+- Docker + Docker Compose (for full-stack mode)
 
-### Start Infrastructure
-```bash
+> **Windows / PowerShell note:** PowerShell splits `-Dtokenization.key-provider=local` at
+> the dot, causing a `Unknown lifecycle phase ".key-provider=local"` error. Always **quote**
+> `-D` arguments that contain dots:
+> ```powershell
+> # Wrong  (PowerShell splits at the dot)
+> mvn clean install "-DskipTests" -Dtokenization.key-provider=local
+>
+> # Correct (quoted = single string passed to Maven)
+> mvn clean install -DskipTests "-Dtokenization.key-provider=local"
+> ```
+
+---
+
+### Option A — Dev mode (no Docker, local keys)
+
+`LocalKeyProvider` generates in-memory AES-256 keys. No Vault, no PostgreSQL needed.
+
+**1. Build all modules:**
+```powershell
+mvn clean install -DskipTests "-Dtokenization.key-provider=local"
+```
+
+**2. Run a service** (open a separate terminal per service):
+```powershell
+# Core tokenization engine  (port 8081)
+mvn spring-boot:run -pl tokenization-engine -am `
+  "-Dspring-boot.run.profiles=dev" `
+  "-Dspring-boot.run.jvmArguments=-Dtokenization.key-provider=local"
+
+# Access control / OPA  (port 8083)
+mvn spring-boot:run -pl tokenization-access-control -am `
+  "-Dspring-boot.run.profiles=dev" `
+  "-Dspring-boot.run.jvmArguments=-Dtokenization.key-provider=local"
+
+# Audit service  (port 8084)
+mvn spring-boot:run -pl tokenization-audit -am `
+  "-Dspring-boot.run.profiles=dev" `
+  "-Dspring-boot.run.jvmArguments=-Dtokenization.key-provider=local"
+
+# API Gateway  (port 8080) — JWT auth + routing
+mvn spring-boot:run -pl tokenization-api-gateway -am "-Dspring-boot.run.profiles=dev"
+
+# Admin UI  (port 8085)
+mvn spring-boot:run -pl tokenization-ui -am "-Dspring-boot.run.profiles=dev"
+```
+
+> Send all API requests to the gateway on port **8080** — it authenticates and routes to the correct backend.
+
+---
+
+### Option B — Full stack (with Docker)
+
+**1. Start infrastructure** (PostgreSQL, Redis, Vault, OPA, Prometheus, Jaeger):
+```powershell
 docker-compose up -d
 ```
 
-### Build and Run (JVM mode)
-```bash
+**2. Build:**
+```powershell
 mvn clean install -DskipTests
-mvn spring-boot:run -pl tokenization-engine -am -Dtokenization.key-provider=local
 ```
 
-### Build Native Image
-```bash
-mvn -Pnative package -pl tokenization-engine -am
-./tokenization-engine/target/tokenization-engine
+**3. Run services** (separate terminals):
+```powershell
+mvn spring-boot:run -pl tokenization-engine          -am "-Dspring-boot.run.profiles=docker"
+mvn spring-boot:run -pl tokenization-access-control  -am "-Dspring-boot.run.profiles=docker"
+mvn spring-boot:run -pl tokenization-audit           -am "-Dspring-boot.run.profiles=docker"
+mvn spring-boot:run -pl tokenization-api-gateway     -am "-Dspring-boot.run.profiles=docker"
+mvn spring-boot:run -pl tokenization-ui              -am "-Dspring-boot.run.profiles=docker"
+```
+
+---
+
+### Option C — GraalVM Native Image
+
+Builds a self-contained native binary with <100ms startup time. Requires GraalVM 21+.
+
+```powershell
+# Build native image for the engine module
+mvn -Pnative package -pl tokenization-engine -am `
+  -DskipTests "-Dtokenization.key-provider=local"
+
+# Run the native binary (Linux/macOS)
+./tokenization-engine/target/tokenization-engine --tokenization.key-provider=local
+
+# Run the native binary (Windows)
+.\tokenization-engine\target\tokenization-engine.exe --tokenization.key-provider=local
 ```
 
 ## API Reference
@@ -112,17 +184,19 @@ curl -X POST http://localhost:8080/api/v1/tokenize/batch \
 
 ## Testing
 
-```bash
+```powershell
 # Unit tests only
-mvn test
+mvn test "-Dtokenization.key-provider=local"
 
-# Unit + integration tests (requires Docker)
-mvn verify -P integration-tests
+# Unit + integration tests (requires Docker for Testcontainers PostgreSQL)
+mvn verify -P integration-tests "-Dtokenization.key-provider=local"
 
-# With coverage report
-mvn verify jacoco:report
+# With JaCoCo coverage report
+mvn verify "-Dtokenization.key-provider=local"
 # Report at: target/site/jacoco/index.html
 ```
+
+> **Why `"-Dtokenization.key-provider=local"`?** `LocalKeyProvider` is `@ConditionalOnProperty(havingValue="local")`. Without this flag the Spring context tries to wire `VaultKeyProvider`, which requires a live Vault instance. The quotes are required on Windows PowerShell — PowerShell splits unquoted `-D` arguments at the dot.
 
 ## Compliance
 
