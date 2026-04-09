@@ -112,7 +112,14 @@ jobs:
           distribution: 'graalvm'
           native-image-job-reports: 'true'
 
-      - name: Build native images
-        run: mvn -Pnative package -B --no-transfer-progress -DskipTests
-        # WHY -DskipTests: Native compilation takes 10+ minutes.
-        # Tests ran in the build-and-test job above.
+      - name: Build native image (tokenization-engine)
+        # WHY -pl tokenization-engine -am: Build only the engine module and its
+        # required dependencies (common, key-management). Building all 5 Spring Boot
+        # modules natively in CI would exceed 60+ minutes and GitHub Actions limits.
+        # The engine is the most critical module (core FF1 FPE logic) and validates
+        # that GraalVM AOT compilation works with Bouncy Castle and Spring Boot 3.x.
+        # WHY -DskipTests: Native compilation takes 10+ minutes per module.
+        # All tests ran (and passed) in the build-and-test job above.
+        run: mvn -Pnative package -pl tokenization-engine -am -B --no-transfer-progress -DskipTests
+        env:
+          TOKENIZATION_KEY_PROVIDER: local

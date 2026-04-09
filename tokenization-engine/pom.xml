@@ -108,4 +108,21 @@
             </plugin>
         </plugins>
     </build>
+
+    <!-- WHY: The native profile must be declared in each Spring Boot module's pom.xml
+         so that native-maven-plugin (configured in parent pluginManagement) actually
+         executes here. Without this, the plugin config is inherited but not active. -->
+    <profiles>
+        <profile>
+            <id>native</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.graalvm.buildtools</groupId>
+                        <artifactId>native-maven-plugin</artifactId>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 </project>
