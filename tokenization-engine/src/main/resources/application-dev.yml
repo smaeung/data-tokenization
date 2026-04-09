@@ -1,0 +1,30 @@
+# Dev profile — runs without Docker/PostgreSQL using H2 in-memory database
+#
+# WHY H2: Flyway migrations use PostgreSQL-specific DDL (gen_random_uuid, TIMESTAMPTZ,
+# pgcrypto). Running Flyway against H2 would fail. Instead, dev mode uses
+# Hibernate ddl-auto=create-drop to build the schema from JPA entities, with
+# Flyway disabled entirely.
+#
+# Usage: mvn spring-boot:run -pl tokenization-engine
+#          "-Dspring-boot.run.profiles=dev"
+#          "-Dspring-boot.run.jvmArguments=-Dtokenization.key-provider=local"
+
+spring:
+  datasource:
+    url: jdbc:h2:mem:tokenization-dev;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE;NON_KEYWORDS=VALUE
+    username: sa
+    password: ""
+    driver-class-name: org.h2.Driver
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    database-platform: org.hibernate.dialect.H2Dialect
+  flyway:
+    enabled: false
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+
+tokenization:
+  key-provider: local
