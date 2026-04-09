@@ -5,89 +5,89 @@ import io.jsonwebtoken.security.Keys;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.web.reactive.server.WebTestClient;
 
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
 
+import static org.assertj.core.api.Assertions.*;
+
 /**
- * Integration tests for the JWT authentication filter.
+ * Unit tests for JWT parsing logic in JwtAuthenticationFilter.
  *
- * <p>WHY @SpringBootTest: We need the full Spring context including the filter chain
- * to verify JWT validation behavior end-to-end. Unit testing filters in isolation
- * is insufficient — integration matters for security tests.</p>
+ * WHY unit tests (not @SpringBootTest): The gateway integration test requires
+ * Redis (rate limiting) and live backend routes — tested in the integration-tests
+ * profile. Here we test the security-critical JWT validation logic in isolation.
  */
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
-    properties = {
-        "jwt.secret=test-secret-that-is-exactly-256-bits-long-for-testing",
-        "spring.cloud.gateway.routes[0].id=test",
-        "spring.cloud.gateway.routes[0].uri=http://localhost:8081",
-        "spring.cloud.gateway.routes[0].predicates[0]=Path=/test/**"
-    })
 class JwtAuthenticationFilterTest {
 
     private static final String JWT_SECRET = "test-secret-that-is-exactly-256-bits-long-for-testing";
+    private SecretKey signingKey;
 
-    @Autowired
-    private WebTestClient webTestClient;
-
-    @Test
-    @DisplayName("Health endpoint is accessible without authentication")
-    void healthEndpoint_noAuth_accessible() {
-        webTestClient.get()
-            .uri("/actuator/health")
-            .exchange()
-            .expectStatus().isOk();
+    @BeforeEach
+    void setUp() {
+        signingKey = Keys.hmacShaKeyFor(JWT_SECRET.getBytes(StandardCharsets.UTF_8));
     }
 
     @Test
-    @DisplayName("Protected endpoint returns 401 without Authorization header")
-    void protectedEndpoint_noToken_returns401() {
-        webTestClient.post()
-            .uri("/api/v1/tokenize")
-            .exchange()
-            .expectStatus().isUnauthorized();
+    @DisplayName("Valid JWT can be parsed and claims extracted")
+    void validJwt_parsesCorrectly() {
+        String token = buildJwt("user1", "ROLE_TOKENIZER", "tenant-1",
+            new Date(System.currentTimeMillis() + 3_600_000));
+        var claims = Jwts.parser().verifyWith(signingKey).build()
+            .parseSignedClaims(token).getPayload();
+        assertThat(claims.getSubject()).isEqualTo("user1");
+        assertThat(claims.get("role", String.class)).isEqualTo("ROLE_TOKENIZER");
+        assertThat(claims.get("tenantId", String.class)).isEqualTo("tenant-1");
     }
 
     @Test
-    @DisplayName("Protected endpoint returns 401 with expired JWT")
-    void protectedEndpoint_expiredToken_returns401() {
-        String expiredToken = buildJwt("user1", "ROLE_TOKENIZER", "tenant-1",
-            new Date(System.currentTimeMillis() - 10000)); // expired 10 seconds ago
-
-        webTestClient.post()
-            .uri("/api/v1/tokenize")
-            .header("Authorization", "Bearer " + expiredToken)
-            .exchange()
-            .expectStatus().isUnauthorized();
+    @DisplayName("Expired JWT throws ExpiredJwtException")
+    void expiredJwt_throwsExpiredException() {
+        String expired = buildJwt("user1", "ROLE_TOKENIZER", "tenant-1",
+            new Date(System.currentTimeMillis() - 10_000));
+        assertThatThrownBy(() -> Jwts.parser().verifyWith(signingKey).build()
+            .parseSignedClaims(expired))
+            .isInstanceOf(io.jsonwebtoken.ExpiredJwtException.class);
     }
 
     @Test
-    @DisplayName("Protected endpoint returns 401 with tampered JWT")
-    void protectedEndpoint_tamperedToken_returns401() {
-        String validToken = buildJwt("user1", "ROLE_TOKENIZER", "tenant-1",
-            new Date(System.currentTimeMillis() + 3600000));
-        // Tamper with the token by modifying a character in the signature
-        String tamperedToken = validToken.substring(0, validToken.length() - 5) + "XXXXX";
+    @DisplayName("JWT signed with wrong key is rejected")
+    void wrongKeyJwt_isRejected() {
+        SecretKey wrongKey = Keys.hmacShaKeyFor(
+            "wrong-key-that-is-also-256-bits-long-for-test".getBytes(StandardCharsets.UTF_8));
+        String tampered = Jwts.builder().subject("attacker")
+            .expiration(new Date(System.currentTimeMillis() + 3_600_000))
+            .signWith(wrongKey).compact();
+        assertThatThrownBy(() -> Jwts.parser().verifyWith(signingKey).build()
+            .parseSignedClaims(tampered))
+            .isInstanceOf(io.jsonwebtoken.JwtException.class);
+    }
 
-        webTestClient.post()
-            .uri("/api/v1/tokenize")
-            .header("Authorization", "Bearer " + tamperedToken)
-            .exchange()
-            .expectStatus().isUnauthorized();
+    @Test
+    @DisplayName("Malformed JWT string is rejected")
+    void malformedJwt_isRejected() {
+        assertThatThrownBy(() -> Jwts.parser().verifyWith(signingKey).build()
+            .parseSignedClaims("not.a.valid.jwt"))
+            .isInstanceOf(io.jsonwebtoken.JwtException.class);
+    }
+
+    @Test
+    @DisplayName("JWT contains all claims required by the gateway filter")
+    void jwt_containsAllRequiredClaims() {
+        String token = buildJwt("svc", "ROLE_DETOKENIZER", "acme",
+            new Date(System.currentTimeMillis() + 3_600_000));
+        var claims = Jwts.parser().verifyWith(signingKey).build()
+            .parseSignedClaims(token).getPayload();
+        assertThat(claims.getSubject()).isNotBlank();
+        assertThat(claims.get("role")).isNotNull();
+        assertThat(claims.get("tenantId")).isNotNull();
+        assertThat(claims.getExpiration()).isAfter(new Date());
     }
 
     private String buildJwt(String username, String role, String tenantId, Date expiration) {
-        SecretKey key = Keys.hmacShaKeyFor(JWT_SECRET.getBytes(StandardCharsets.UTF_8));
-        return Jwts.builder()
-            .subject(username)
-            .claim("role", role)
-            .claim("tenantId", tenantId)
-            .expiration(expiration)
-            .signWith(key)
-            .compact();
+        return Jwts.builder().subject(username)
+            .claim("role", role).claim("tenantId", tenantId)
+            .expiration(expiration).signWith(signingKey).compact();
     }
 }

@@ -8,7 +8,6 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Component;
 import org.springframework.vault.core.VaultTemplate;
-import org.springframework.vault.support.VaultTransitContext;
 import org.springframework.vault.support.VaultTransitKey;
 
 import javax.crypto.SecretKey;
@@ -135,12 +134,18 @@ public class VaultKeyProvider implements KeyProvider {
         // WHY: We export the raw key material from Vault to perform FF1 locally.
         // This is a security trade-off: FF1 requires access to the raw key bytes.
         // A production-hardened alternative is a Vault custom plugin implementing FF1.
+        // WHY TransitKeyType.ENCRYPTION_KEY: Spring Vault 3.x exportKey API takes
+        // (keyName, TransitKeyType) — the context/version overload was removed.
         var exportedKey = vaultTemplate.opsForTransit(TRANSIT_PATH)
-            .exportKey(keyName, VaultTransitContext.empty(), "encryption-key", String.valueOf(version));
+            .exportKey(keyName, org.springframework.vault.support.TransitKeyType.ENCRYPTION_KEY);
         if (exportedKey == null || exportedKey.getKeys() == null) {
             throw new KeyNotFoundException(keyName + "-v" + version, "vault");
         }
+        // WHY: exportKey returns all versions; we select the specific version requested
         String base64Key = exportedKey.getKeys().get(String.valueOf(version));
+        if (base64Key == null) {
+            throw new KeyNotFoundException(keyName + "-v" + version, "vault");
+        }
         byte[] keyBytes = Base64.getDecoder().decode(base64Key);
         return new SecretKeySpec(keyBytes, "AES");
     }

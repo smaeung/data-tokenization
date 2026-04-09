@@ -89,9 +89,10 @@ public class FF1Engine {
             String alphabet = radix.getAlphabet();
             int radixValue = radix.getValue();
 
-            // Convert input string to integer array based on the alphabet
-            // WHY: FF1 operates on sequences of integers in range [0, radix-1]
-            int[] inputNumerals = stringToNumerals(input, alphabet);
+            // Convert input string to byte array based on the alphabet.
+            // WHY byte[]: Bouncy Castle's FPEFF1Engine.processBlock requires byte[] —
+            // each element is a numeral in range [0, radix-1] (max 35 for alphanumeric, fits in a byte).
+            byte[] inputNumerals = stringToNumerals(input, alphabet);
 
             // COMPLIANCE: Verify domain size >= 1,000,000 (NIST SP 800-38G requirement)
             // radix^length >= 1,000,000 prevents brute-force guessing attacks
@@ -116,11 +117,11 @@ public class FF1Engine {
             FPEFF1Engine engine = new FPEFF1Engine();
             engine.init(decrypt, params);
 
-            // WHY: Bouncy Castle's processBlock works in-place, so we use a copy
-            int[] outputNumerals = inputNumerals.clone();
+            // WHY: processBlock writes the result into a separate output array
+            byte[] outputNumerals = inputNumerals.clone();
             engine.processBlock(inputNumerals, 0, inputNumerals.length, outputNumerals, 0);
 
-            // Convert the output integer array back to a string using the same alphabet
+            // Convert the output byte array back to a string using the same alphabet
             return numeralsToString(outputNumerals, alphabet);
 
         } catch (TokenizationException e) {
@@ -137,15 +138,16 @@ public class FF1Engine {
     }
 
     /**
-     * Converts a string to a numeral array for FF1 processing.
+     * Converts a string to a byte array for FF1 processing.
      * Each character in the input is mapped to its index in the alphabet.
      *
-     * <p>WHY: FF1 requires numeric representation of plaintext symbols.
+     * <p>WHY byte[]: Bouncy Castle FPEFF1Engine.processBlock requires byte[].
+     * Radix-36 (alphanumeric) has max value 35, which fits safely in a byte.
      * For numeric data: '4' → 4, '0' → 0.
      * For alphanumeric: '0' → 0, 'a' → 10, 'z' → 35.</p>
      */
-    private int[] stringToNumerals(String input, String alphabet) {
-        int[] numerals = new int[input.length()];
+    private byte[] stringToNumerals(String input, String alphabet) {
+        byte[] numerals = new byte[input.length()];
         for (int i = 0; i < input.length(); i++) {
             int index = alphabet.indexOf(input.charAt(i));
             if (index == -1) {
@@ -154,19 +156,19 @@ public class FF1Engine {
                     "Character '" + input.charAt(i) + "' is not in the expected alphabet"
                 );
             }
-            numerals[i] = index;
+            numerals[i] = (byte) index;
         }
         return numerals;
     }
 
     /**
-     * Converts a numeral array back to a string using the alphabet.
+     * Converts a byte numeral array back to a string using the alphabet.
      * This is the inverse of stringToNumerals.
      */
-    private String numeralsToString(int[] numerals, String alphabet) {
+    private String numeralsToString(byte[] numerals, String alphabet) {
         StringBuilder sb = new StringBuilder(numerals.length);
-        for (int numeral : numerals) {
-            sb.append(alphabet.charAt(numeral));
+        for (byte numeral : numerals) {
+            sb.append(alphabet.charAt(numeral & 0xFF));
         }
         return sb.toString();
     }
