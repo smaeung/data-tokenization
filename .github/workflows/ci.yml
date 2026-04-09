@@ -69,10 +69,10 @@ jobs:
           name: jacoco-report
           path: '**/target/site/jacoco/'
 
-      - name: Coverage gate check
-        run: |
-          # WHY: Fail the build if coverage drops below 75% (targeting 90%+ in core modules)
-          mvn jacoco:check -B --no-transfer-progress || echo "Coverage check failed"
+      # WHY: No separate jacoco:check step needed — the check execution is bound to
+      # the verify phase in parent pom.xml pluginManagement. Running jacoco:check
+      # directly on the parent POM fails because it has no coverage data (pom packaging).
+      # Coverage threshold (90% instruction, 80% branch) is enforced by mvn verify above.
 
       - name: Upload Surefire test reports
         if: failure()
