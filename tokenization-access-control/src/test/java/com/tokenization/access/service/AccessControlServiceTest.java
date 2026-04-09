@@ -115,7 +115,31 @@ class AccessControlServiceTest {
             .isInstanceOf(AccessDeniedException.class);
     }
 
+    @Test
+    @DisplayName("ADMIN role can detokenize any data type")
+    void assertCanDetokenize_adminRole_allowed() {
+        assertThatCode(() ->
+            accessControlService.assertCanDetokenize("admin", "ROLE_ADMIN", DataType.CREDIT_CARD, "tenant-1"))
+            .doesNotThrowAnyException();
+    }
+
+    @Test
+    @DisplayName("ADMIN role can view audit logs")
+    void assertCanViewAudit_adminRole_allowed() {
+        assertThatCode(() ->
+            accessControlService.assertCanViewAudit("admin", "ROLE_ADMIN", "tenant-1"))
+            .doesNotThrowAnyException();
+    }
+
     // ─── Key management tests ─────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("ADMIN role can manage keys")
+    void assertCanManageKeys_adminRole_allowed() {
+        assertThatCode(() ->
+            accessControlService.assertCanManageKeys("admin", "ROLE_ADMIN", "tenant-1"))
+            .doesNotThrowAnyException();
+    }
 
     @Test
     @DisplayName("Only ADMIN can manage keys")
