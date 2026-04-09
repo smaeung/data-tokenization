@@ -102,6 +102,14 @@
             <artifactId>postgresql</artifactId>
             <scope>test</scope>
         </dependency>
+        <!-- WHY: H2 in-memory database for dev profile (no Docker required).
+             Runtime scope so it is available when running locally with -Pdev
+             but not included in the production fat-jar classpath. -->
+        <dependency>
+            <groupId>com.h2database</groupId>
+            <artifactId>h2</artifactId>
+            <scope>runtime</scope>
+        </dependency>
     </dependencies>
     <build>
         <plugins>
