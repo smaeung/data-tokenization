@@ -1,0 +1,28 @@
+# Dev profile — no Docker required
+#
+# WHY: Swaps PostgreSQL for H2 in-memory database so the access-control
+# service starts without Docker. Flyway is disabled because migrations
+# use PostgreSQL-specific DDL incompatible with H2.
+
+spring:
+  datasource:
+    url: jdbc:h2:mem:tokenization-access-dev;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE;NON_KEYWORDS=VALUE
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: false
+  flyway:
+    enabled: false
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+
+# OPA is not required in dev — the circuit breaker will open and
+# opaUnavailableFallback will deny requests (fail-closed by design).
+# To test OPA locally, start it with: docker run -p 8181:8181 openpolicyagent/opa run --server
+opa:
+  url: http://localhost:8181

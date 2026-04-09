@@ -1,0 +1,37 @@
+# Dev profile — no Docker required
+#
+# WHY: The base application.yml targets PostgreSQL which requires Docker.
+# This profile swaps in H2 in-memory database so the engine starts
+# instantly without any infrastructure dependencies.
+#
+# WHY Flyway disabled: The Flyway migration (V1__init_engine_schema.sql)
+# uses PostgreSQL-specific syntax (pgcrypto extension, TIMESTAMPTZ, gen_random_uuid).
+# H2 cannot execute it. Instead, JPA's ddl-auto=create-drop generates the
+# schema from entity definitions at startup and drops it on shutdown.
+
+spring:
+  datasource:
+    url: jdbc:h2:mem:tokenization-dev;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE;NON_KEYWORDS=VALUE
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+  jpa:
+    hibernate:
+      # WHY create-drop: Schema is recreated on every start in dev mode.
+      # This ensures the in-memory DB always matches the current entity definitions.
+      ddl-auto: create-drop
+    # WHY: No database-platform needed — Hibernate auto-detects H2 dialect
+    show-sql: false
+  flyway:
+    # WHY: Flyway migrations use PostgreSQL-specific DDL and cannot run against H2.
+    enabled: false
+  h2:
+    console:
+      # WHY: H2 console at http://localhost:8081/h2-console lets you inspect
+      # in-memory data during development without external tooling.
+      enabled: true
+      path: /h2-console
+
+# Dev-only key provider warning is logged by LocalKeyProvider on startup
+tokenization:
+  key-provider: local
