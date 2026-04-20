@@ -8,7 +8,6 @@
 # uses PostgreSQL-specific syntax (pgcrypto extension, TIMESTAMPTZ, gen_random_uuid).
 # H2 cannot execute it. Instead, JPA's ddl-auto=create-drop generates the
 # schema from entity definitions at startup and drops it on shutdown.
-
 spring:
   datasource:
     url: jdbc:h2:mem:tokenization-dev;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE;NON_KEYWORDS=VALUE
